@@ -27,8 +27,8 @@ function runCmd(cmd) {
     const stdout = []
     const stderr = []
 
-    child.stdout.on('data', chunk => stdout.push(data))
-    child.stderr.on('data', chunk => stderr.push(data))
+    child.stdout.on('data', chunk => stdout.push(chunk))
+    child.stderr.on('data', chunk => stderr.push(chunk))
 
     process.stdin.pipe(child.stdin)
     child.stdout.pipe(process.stdout)
