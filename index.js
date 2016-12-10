@@ -1,6 +1,5 @@
 const cp = require('child_process')
 const path = require('path')
-const chalk = require('chalk')
 
 module.exports = function x(cmds) {
   let promise = Promise.resolve()
@@ -13,14 +12,27 @@ module.exports = function x(cmds) {
 
       const child = cp.exec(cmd)
 
+      const stdout = []
+      const stderr = []
+
+      child.stdout.on('data', chunk => stdout.push(data))
+      child.stderr.on('data', chunk => stderr.push(data))
+
+      process.stdin.pipe(child.stdin)
       child.stdout.pipe(process.stdout)
       child.stderr.pipe(process.stderr)
 
       child.once('close', (code, signal) => {
-        if (!code) {
-          return resolve()
+        process.stdin.unpipe(child.stdin)
+        child.stdout.unpipe(process.stdout)
+        child.stderr.unpipe(process.stderr)
+
+        const res = { code, stdout: Buffer.concat(stdout), stderr: Buffer.concat(stderr) }
+
+        if (code) {
+          return reject(res)
         }
-        reject(new Error(`${cmd} exit with code ${code}`))
+        resolve(res)
       })
     }))
   }
