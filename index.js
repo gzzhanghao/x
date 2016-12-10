@@ -54,8 +54,10 @@ exec.e = process.env
  * @param {string} encoding
  * @return {Object} Result of the command
  */
-exec.get = function get(cmd, encoding = defaultEncoding) {
-  return exec.wait(exec.inspect(exec.spawn(cmd)))
+exec.get = function get(cmd, encoding) {
+  const child = exec.spawn(cmd, { stdio: ['inherit', 'pipe', 'pipe'] })
+  exec.inspect(child, encoding)
+  return exec.wait(child, encoding)
 }
 
 /**
@@ -67,12 +69,7 @@ exec.get = function get(cmd, encoding = defaultEncoding) {
  */
 exec.spawn = function spawn(cmd, options) {
   process.stdout.write(`$ ${cmd}\n`)
-
-  return cp.spawn(cmd, [], Object.assign({
-    shell: true,
-    encoding: 'buffer',
-    stdio: ['inherit', 'pipe', 'pipe'],
-  }, options))
+  return cp.spawn(cmd, [], Object.assign({ shell: true, encoding: 'buffer', }, options))
 }
 
 /**
