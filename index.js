@@ -4,42 +4,51 @@ const cp = require('child_process')
 const path = require('path')
 
 module.exports = function x(cmds) {
+  if (Array.isArray(cmds)) {
+    return Promise.all(cmds.map(x))
+  }
+
   let promise = Promise.resolve()
 
   for (const line of cmds.replace(/\\\n/g, '').trim().split('\n')) {
-    const cmd = line.trim()
-
-    promise = promise.then(() => new Promise((resolve, reject) => {
-      process.stdout.write(`$ ${cmd}\n`)
-
-      const child = cp.exec(cmd)
-
-      const stdout = []
-      const stderr = []
-
-      child.stdout.on('data', chunk => stdout.push(data))
-      child.stderr.on('data', chunk => stderr.push(data))
-
-      process.stdin.pipe(child.stdin)
-      child.stdout.pipe(process.stdout)
-      child.stderr.pipe(process.stderr)
-
-      child.once('close', (code, signal) => {
-        process.stdin.unpipe(child.stdin)
-        child.stdout.unpipe(process.stdout)
-        child.stderr.unpipe(process.stderr)
-
-        const res = { code, stdout: Buffer.concat(stdout), stderr: Buffer.concat(stderr) }
-
-        if (code) {
-          return reject(res)
-        }
-        resolve(res)
-      })
-    }))
+    promise = promise.then(() => runCmd(line.trim()))
   }
 
   return promise
+}
+
+function runCmd(cmd) {
+  return new Promise((resolve, reject) => {
+    process.stdout.write(`$ ${cmd}\n`)
+
+    const child = cp.exec(cmd)
+    const onceError = () => child.kill()
+
+    const stdout = []
+    const stderr = []
+
+    child.stdout.on('data', chunk => stdout.push(data))
+    child.stderr.on('data', chunk => stderr.push(data))
+
+    process.stdin.pipe(child.stdin)
+    child.stdout.pipe(process.stdout)
+    child.stderr.pipe(process.stderr)
+    child.once('error', onceError)
+
+    child.once('close', (code, signal) => {
+      process.stdin.unpipe(child.stdin)
+      child.stdout.unpipe(process.stdout)
+      child.stderr.unpipe(process.stderr)
+      child.removeListener('error', onceError)
+
+      const res = { code, signal, stdout: Buffer.concat(stdout), stderr: Buffer.concat(stderr) }
+
+      if (code) {
+        return reject(res)
+      }
+      resolve(res)
+    })
+  })
 }
 
 module.exports.e = process.env
