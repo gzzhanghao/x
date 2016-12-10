@@ -11,9 +11,7 @@
   ],
   "author": "Jason",
   "license": "MIT",
-  "dependencies": {
-    "es6-promisify": "^5.0.0"
-  },
+  "dependencies": {},
   "devDependencies": {},
   "repository": {
     "type": "git",
