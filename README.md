@@ -23,15 +23,15 @@ export async function build(opts) {
 
 ### x(commands)
 
-Run a series of commands. Pass an array to run commands in parallel.
+Runs a series of commands. Pass an array to run commands in parallel.
 
 ```javascript
-x(['rm -rf dist', 'mkdir tmp'])
+x(['rm -rf dist', 'mkdir tmp']) // -> { code, signal }
 ```
 
 ### x.get(command[, encoding])
 
-Run a command and get its stdio output.
+Runs a command and get its stdio output.
 
 ```javascript
 x.get('ls -alh') // -> { code, signal, stdout, stdin }
@@ -52,5 +52,5 @@ Wait for a child process ends and get its stdio output.
 Pipe stdio from child process to process.stdio.
 
 ```javascript
-x.wait(x.inspect(x.spawn('ls -alh'))) // -> identical to x.get('ls -alh')
+x.wait(x.inspect(x.spawn('ls -alh'))) // -> identical with x.get('ls -alh')
 ```
