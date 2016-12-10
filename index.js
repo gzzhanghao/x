@@ -1,36 +1,104 @@
 'use strict'
 
 const cp = require('child_process')
+const iconv = require('iconv-lite')
 
-exports = module.exports = function x(cmds) {
+let defaultEncoding = 'utf-8'
+if (process.platform === 'win32') {
+  defaultEncoding = 'gbk'
+}
+
+module.exports = exec
+
+/**
+ * Execute commands
+ *
+ * @param {string|Array<string>} cmds
+ * @return {Object} Result of the commands
+ */
+function exec(cmds) {
   if (Array.isArray(cmds)) {
-    return Promise.all(cmds.map(x))
+    return Promise.all(cmds.map(exec))
   }
 
   let promise = Promise.resolve()
 
   for (const line of cmds.replace(/\\\n/g, '').trim().split('\n')) {
-    promise = promise.then(() => runCmd(line.trim()))
+    promise = promise.then(() => new Promise((resolve, reject) => {
+      const cmd = line.trim()
+      const child = exec.spawn(cmd, { stdio: 'inherit' })
+
+      child.once('error', () => child.kill())
+
+      child.once('close', (code, signal) => {
+        const res = { cmd, code, signal }
+
+        if (code) {
+          reject(res)
+        } else {
+          resolve(res)
+        }
+      })
+    }))
   }
 
   return promise
 }
 
-exports.e = process.env
+exec.e = process.env
 
-function runCmd(cmd) {
+/**
+ * Execute a command and get it's stdio content
+ *
+ * @param {string} cmd
+ * @param {string} encoding
+ * @return {Object} Result of the command
+ */
+exec.get = function get(cmd, encoding = defaultEncoding) {
+  return exec.wait(exec.inspect(exec.spawn(cmd)))
+}
+
+/**
+ * Create a child process to execute the command
+ *
+ * @param {string} cmd
+ * @param {Object} options
+ * @return {ChildProcess}
+ */
+exec.spawn = function spawn(cmd, options) {
+  process.stdout.write(`$ ${cmd}\n`)
+
+  return cp.spawn(cmd, [], Object.assign({
+    shell: true,
+    encoding: 'buffer',
+    stdio: ['inherit', 'pipe', 'pipe'],
+  }, options))
+}
+
+/**
+ * Wait for a child process to close and get its stdio content
+ *
+ * @param {ChildProcess} child
+ * @param {string} encoding
+ * @return {Object} Result from the child process
+ */
+exec.wait = function wait(child, encoding) {
   return new Promise((resolve, reject) => {
-    process.stdout.write(`$ ${cmd}\n`)
+    const stdout = []
+    const stderr = []
 
-    const child = cp.spawn(cmd, [], { shell: true, stdio: 'inherit' })
-    const onceError = () => child.kill()
+    child.once('error', () => child.kill())
 
-    child.once('error', onceError)
+    child.stdout.on('data', chunk => stdout.push(chunk))
+    child.stderr.on('data', chunk => stderr.push(chunk))
 
     child.once('close', (code, signal) => {
-      child.removeListener('error', onceError)
+      const res = { code, signal, stdout: Buffer.concat(stdout), stderr: Buffer.concat(stderr) }
 
-      const res = { cmd, code, signal }
+      if (encoding !== 'buffer') {
+        res.stdout = iconv.decode(res.stdout, encoding)
+        res.stderr = iconv.decode(res.stderr, encoding)
+      }
 
       if (code) {
         reject(res)
@@ -39,4 +107,19 @@ function runCmd(cmd) {
       }
     })
   })
+}
+
+/**
+ * Pipe stdio from child process to process.stdio
+ *
+ * @param {ChildProcess} child
+ * @param {string} encoding
+ * @return {ChildProcess} child itself
+ */
+exec.inspect = function inspect(child, encoding = defaultEncoding) {
+  if (encoding !== 'buffer') {
+    child.stdout.pipe(iconv.decodeStream(encoding)).pipe(process.stdout)
+    child.stderr.pipe(iconv.decodeStream(encoding)).pipe(process.stderr)
+  }
+  return child
 }
