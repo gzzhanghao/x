@@ -24,11 +24,11 @@ function runCmd(cmd) {
     const child = cp.exec(cmd)
     const onceError = () => child.kill()
 
-    const stdout = []
-    const stderr = []
+    let stdout = ''
+    let stderr = ''
 
-    child.stdout.on('data', chunk => stdout.push(chunk))
-    child.stderr.on('data', chunk => stderr.push(chunk))
+    child.stdout.on('data', chunk => stdout += chunk)
+    child.stderr.on('data', chunk => stderr += chunk)
 
     process.stdin.pipe(child.stdin)
     child.stdout.pipe(process.stdout)
@@ -41,7 +41,7 @@ function runCmd(cmd) {
       child.stderr.unpipe(process.stderr)
       child.removeListener('error', onceError)
 
-      const res = { code, signal, stdout: Buffer.concat(stdout), stderr: Buffer.concat(stderr) }
+      const res = { code, signal, stdout, stderr }
 
       if (code) {
         return reject(res)
