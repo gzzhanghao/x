@@ -1,0 +1,26 @@
+{
+  "name": "@gzzhanghao/x",
+  "version": "0.1.0",
+  "description": "Execute commands in node",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "exec"
+  ],
+  "author": "Jason",
+  "license": "MIT",
+  "dependencies": {
+    "es6-promisify": "^5.0.0"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gzzhanghao/x.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gzzhanghao/x/issues"
+  },
+  "homepage": "https://github.com/gzzhanghao/x#readme"
+}
