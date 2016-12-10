@@ -12,3 +12,5 @@ module.exports = function x(cmds) {
 
   return promise
 }
+
+module.exports.e = process.env
