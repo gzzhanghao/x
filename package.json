@@ -8,7 +8,9 @@
   },
   "author": "Jason",
   "license": "MIT",
-  "dependencies": {},
+  "dependencies": {
+    "iconv-lite": "^0.4.15"
+  },
   "devDependencies": {},
   "repository": {
     "type": "git",
