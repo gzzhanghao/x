@@ -14,9 +14,10 @@ module.exports = exec
  * Execute commands
  *
  * @param {string|Array<string>} cmds
+ * @param {Object} options
  * @return {Object} Result of the commands
  */
-function exec(cmds) {
+function exec(cmds, options) {
   if (Array.isArray(cmds)) {
     return Promise.all(cmds.map(exec))
   }
@@ -26,7 +27,7 @@ function exec(cmds) {
   for (const line of cmds.replace(/\\\n/g, '').trim().split('\n')) {
     promise = promise.then(() => new Promise((resolve, reject) => {
       const cmd = line.trim()
-      const child = exec.spawn(cmd, { stdio: 'inherit' })
+      const child = exec.spawn(cmd, Object.assign({ stdio: 'inherit' }, options))
 
       child.once('error', () => child.kill())
 
@@ -52,10 +53,11 @@ exec.e = process.env
  *
  * @param {string} cmd
  * @param {string} encoding
+ * @param {Object} options
  * @return {Object} Result of the command
  */
-exec.get = function get(cmd, encoding) {
-  const child = exec.spawn(cmd, { stdio: ['inherit', 'pipe', 'pipe'] })
+exec.get = function get(cmd, encoding, options) {
+  const child = exec.spawn(cmd, Object.assign({ stdio: ['inherit', 'pipe', 'pipe'] }, options))
   exec.inspect(child, encoding)
   return exec.wait(child, encoding)
 }
@@ -69,7 +71,8 @@ exec.get = function get(cmd, encoding) {
  */
 exec.spawn = function spawn(cmd, options) {
   process.stdout.write(`$ ${cmd}\n`)
-  return cp.spawn(cmd, [], Object.assign({ shell: true, encoding: 'buffer', }, options))
+  console.log(cmd, [], Object.assign({ shell: true, encoding: 'buffer', }, options))
+  return cp.spawn(cmd, [], Object.assign({ shell: true, }, options))
 }
 
 /**
