@@ -71,7 +71,6 @@ exec.get = function get(cmd, encoding, options) {
  */
 exec.spawn = function spawn(cmd, options) {
   process.stdout.write(`$ ${cmd}\n`)
-  console.log(cmd, [], Object.assign({ shell: true, encoding: 'buffer', }, options))
   return cp.spawn(cmd, [], Object.assign({ shell: true, }, options))
 }
 
