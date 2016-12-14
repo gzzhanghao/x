@@ -27,29 +27,29 @@ export async function x(cmds, opts = {}) {
   for (const line of cmds.trim().split('\n')) {
     const cmd = line.trim()
 
-    if (cmd.split(/\s/, 1)[0] === 'cd') {
-      process.stdout.write(`$ ${cmd}\n`)
+    if (cmd.split(/\s/, 1)[0] !== 'cd') {
+      const child = spawn(cmd, Object.assign({ stdio: 'inherit' }, opts))
+      const [code, signal] = await waitForClose(child)
 
-      let target = cmd.slice(2).trim()
-
-      if (target) {
-        target = await g(`echo ${target}`, { silent: true })
+      if (code && !opts.ignoreCode) {
+        throw { code, signal, cmd }
       }
-
-      if (target) {
-        target = normalize(target.trim() + sep)
-      }
-
-      process.chdir(target || getUserHome())
       continue
     }
 
-    const child = spawn(cmd, Object.assign({ stdio: 'inherit' }, opts))
-    const [code, signal] = await waitForClose(child)
+    process.stdout.write(`$ ${cmd}\n`)
 
-    if (code && !opts.ignoreCode) {
-      throw { code, signal, cmd }
+    let target = cmd.slice(2).trim()
+
+    if (target) {
+      target = await g(`echo ${target}`, { silent: true })
     }
+
+    if (target) {
+      target = normalize(target.trim() + sep)
+    }
+
+    process.chdir(target || getUserHome())
   }
 }
 
@@ -90,7 +90,12 @@ export async function r(cmd, opts = {}) {
  * @returns {Promise<string|Buffer>}
  */
 export function g(cmd, opts = {}) {
-  return r(cmd, opts).then(res => res.stdout)
+  return r(cmd, opts).then(res => {
+    if (opts.encoding === 'buffer') {
+      return res.stdout
+    }
+    return res.stdout.trim()
+  })
 }
 
 /**
