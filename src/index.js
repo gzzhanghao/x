@@ -23,7 +23,7 @@ export const defaultOpts = {}
  */
 export async function x(cmds, opts = defaultOpts) {
   if (Array.isArray(cmds)) {
-    return Promise.all(cmds.map(cmd => exec(cmd, opts)))
+    return Promise.all(cmds.map(cmd => x(cmd, opts)))
   }
 
   for (const line of cmds.trim().split('\n')) {
