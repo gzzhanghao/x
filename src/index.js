@@ -11,6 +11,8 @@ if (process.platform === 'win32') {
 
 export const e = process.env
 
+export const defaultOpts = {}
+
 /**
  * Execute series of commands
  *
@@ -19,13 +21,17 @@ export const e = process.env
  *
  * @returns {Promise}
  */
-export async function x(cmds, opts = {}) {
+export async function x(cmds, opts = defaultOpts) {
   if (Array.isArray(cmds)) {
     return Promise.all(cmds.map(cmd => exec(cmd, opts)))
   }
 
   for (const line of cmds.trim().split('\n')) {
     const cmd = line.trim()
+
+    if (!cmd) {
+      continue
+    }
 
     if (cmd.split(/\s/, 1)[0] !== 'cd') {
       const child = spawn(cmd, Object.assign({ stdio: 'inherit' }, opts))
@@ -61,7 +67,7 @@ export async function x(cmds, opts = {}) {
  *
  * @returns {Promise<CommandResult>}
  */
-export async function r(cmd, opts = {}) {
+export async function r(cmd, opts = defaultOpts) {
   const encoding = opts.encoding || defaultEncoding
   const child = spawn(cmd, Object.assign({}, opts, { stdio: ['inherit', 'pipe', 'pipe'] }))
 
@@ -89,7 +95,7 @@ export async function r(cmd, opts = {}) {
  *
  * @returns {Promise<string|Buffer>}
  */
-export function g(cmd, opts = {}) {
+export function g(cmd, opts = defaultOpts) {
   return r(cmd, opts).then(res => {
     if (opts.trim === false && opts.encoding === 'buffer') {
       return res.stdout
@@ -108,7 +114,7 @@ export function g(cmd, opts = {}) {
  *
  * @returns {ChildProcess}
  */
-function spawn(cmd_, opts) {
+function spawn(cmd_, opts = defaultOpts) {
   let cmd = cmd_
   if (!opts.silent) {
     process.stdout.write(`$ ${cmd}\n`)
