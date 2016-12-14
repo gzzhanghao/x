@@ -11,7 +11,7 @@ npm i -S @gzzhanghao/x
 ## Usage
 
 ```javascript
-import x from '@gzzhanghao/x'
+import { x } from '@gzzhanghao/x'
 
 export async function build(opts) {
   await x(`
@@ -21,36 +21,23 @@ export async function build(opts) {
 }
 ```
 
-### x(commands)
+### e
 
-Runs a series of commands. Pass an array to run commands in parallel.
+Identical to process.env.
+
+### x(commands[, options])
+
+Execute series of commands. Pass an array to run commands in parallel.
 
 ```javascript
-x(['rm -rf dist', 'mkdir tmp']) // -> { code, signal }
+await x(['rm -rf dist', 'mkdir tmp'])
 ```
 
-### x.get(command[, encoding])
+### g(command[, options])
 
-Runs a command and get its stdio output.
-
-```javascript
-x.get('ls -alh') // -> { code, signal, stdout, stdin }
-```
-
-### x.spawn(command[, options])
-
-Spawn a child process with given options, check out node.js's [child_process.spawn](https://nodejs.org/dist/latest-v7.x/docs/api/child_process.html#child_process_child_process_spawn_command_args_options) for more details.
-
-This method sets the options to `{ shell: true, encoding: 'buffer' }` by default.
-
-### x.wait(child[, encoding])
-
-Wait for a child process ends and get its stdio output.
-
-### x.inspect(child[, encoding])
-
-Pipe stdio from child process to process.stdio.
+Get output from a command.
 
 ```javascript
-x.wait(x.inspect(x.spawn('ls -alh'))) // -> identical with x.get('ls -alh')
+await g('ls -alh') // -> { code, signal, stdout, stdin, encoding }
+'' + await g('ls') // -> ls's stdout
 ```

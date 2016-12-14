@@ -1,124 +1,170 @@
-'use strict'
-
-const cp = require('child_process')
-const iconv = require('iconv-lite')
+import os from 'os'
+import cp from 'child_process'
+import iconv from 'iconv-lite'
+import waitFor from 'event-to-promise'
+import { sep, normalize, resolve } from 'path'
 
 let defaultEncoding = 'utf-8'
 if (process.platform === 'win32') {
   defaultEncoding = 'gbk'
 }
 
-module.exports = exec
+export const e = process.env
 
 /**
- * Execute commands
+ * Execute series of commands
  *
- * @param {string|Array<string>} cmds
- * @param {Object} options
- * @return {Object} Result of the commands
+ * @param {string} cmds
+ * @param {Object} opts
+ *
+ * @returns {Promise}
  */
-function exec(cmds, options) {
+export async function x(cmds, opts = {}) {
   if (Array.isArray(cmds)) {
-    return Promise.all(cmds.map(exec))
+    return Promise.all(cmds.map(cmd => exec(cmd, opts)))
   }
 
-  let promise = Promise.resolve()
+  for (const line of cmds.trim().split('\n')) {
+    const cmd = line.trim()
 
-  for (const line of cmds.replace(/\\\n/g, '').trim().split('\n')) {
-    promise = promise.then(() => new Promise((resolve, reject) => {
-      const cmd = line.trim()
-      const child = exec.spawn(cmd, Object.assign({ stdio: 'inherit' }, options))
+    if (cmd.split(/\s/, 1)[0] === 'cd') {
+      process.stdout.write(`$ ${cmd}\n`)
 
-      child.once('error', () => child.kill())
+      let target = cmd.slice(2).trim()
 
-      child.once('close', (code, signal) => {
-        const res = { cmd, code, signal }
+      if (target) {
+        target = await g(`echo ${target}`, { silent: true })
+      }
 
-        if (code) {
-          reject(res)
-        } else {
-          resolve(res)
-        }
-      })
-    }))
+      if (target) {
+        target = normalize(target.trim() + sep)
+      }
+
+      process.chdir(target || getUserHome())
+      continue
+    }
+
+    const child = spawn(cmd, Object.assign({ stdio: 'inherit' }, opts))
+    const [code, signal] = await waitForClose(child)
+
+    if (code && !opts.ignoreCode) {
+      throw { code, signal, cmd }
+    }
   }
-
-  return promise
 }
 
-exec.e = process.env
-
 /**
- * Execute a command and get it's stdio content
+ * Execute a command and get its output
  *
  * @param {string} cmd
- * @param {string} encoding
- * @param {Object} options
- * @return {Object} Result of the command
- */
-exec.get = function get(cmd, encoding, options) {
-  const child = exec.spawn(cmd, Object.assign({ stdio: ['inherit', 'pipe', 'pipe'] }, options))
-  exec.inspect(child, encoding)
-  return exec.wait(child, encoding)
-}
-
-/**
- * Create a child process to execute the command
+ * @param {Object} opts
  *
- * @param {string} cmd
- * @param {Object} options
- * @return {ChildProcess}
+ * @returns {Promise<CommandResult>}
  */
-exec.spawn = function spawn(cmd, options) {
-  process.stdout.write(`$ ${cmd}\n`)
-  return cp.spawn(cmd, [], Object.assign({ shell: true, }, options))
-}
+export async function r(cmd, opts = {}) {
+  const encoding = opts.encoding || defaultEncoding
+  const child = spawn(cmd, Object.assign({}, opts, { stdio: ['inherit', 'pipe', 'pipe'] }))
 
-/**
- * Wait for a child process to close and get its stdio content
- *
- * @param {ChildProcess} child
- * @param {string} encoding
- * @return {Object} Result from the child process
- */
-exec.wait = function wait(child, encoding) {
-  return new Promise((resolve, reject) => {
-    const stdout = []
-    const stderr = []
+  const stdout = []
+  const stderr = []
 
-    child.once('error', () => child.kill())
+  child.stdout.on('data', chunk => stdout.push(chunk))
+  child.stderr.on('data', chunk => stderr.push(chunk))
 
-    child.stdout.on('data', chunk => stdout.push(chunk))
-    child.stderr.on('data', chunk => stderr.push(chunk))
-
-    child.once('close', (code, signal) => {
-      const res = { code, signal, stdout: Buffer.concat(stdout), stderr: Buffer.concat(stderr) }
-
-      if (encoding !== 'buffer') {
-        res.stdout = iconv.decode(res.stdout, encoding)
-        res.stderr = iconv.decode(res.stderr, encoding)
-      }
-
-      if (code) {
-        reject(res)
-      } else {
-        resolve(res)
-      }
-    })
-  })
-}
-
-/**
- * Pipe stdio from child process to process.stdio
- *
- * @param {ChildProcess} child
- * @param {string} encoding
- * @return {ChildProcess} child itself
- */
-exec.inspect = function inspect(child, encoding = defaultEncoding) {
-  if (encoding !== 'buffer') {
+  if (!opts.silent && encoding !== 'buffer') {
     child.stdout.pipe(iconv.decodeStream(encoding)).pipe(process.stdout)
     child.stderr.pipe(iconv.decodeStream(encoding)).pipe(process.stderr)
   }
-  return child
+
+  const [code, signal] = await waitForClose(child)
+
+  return new CommandResult(code, signal, stdout, stderr, encoding)
+}
+
+/**
+ * Get stdout from a command
+ *
+ * @param {string} cmd
+ * @param {Object} opts
+ *
+ * @returns {Promise<string|Buffer>}
+ */
+export function g(cmd, opts = {}) {
+  return r(cmd, opts).then(res => res.stdout)
+}
+
+/**
+ * Create a child process with given options
+ *
+ * @private
+ *
+ * @param {string} cmd
+ * @param {Object} opts
+ *
+ * @returns {ChildProcess}
+ */
+function spawn(cmd, opts) {
+  if (!opts.silent) {
+    process.stdout.write(`$ ${cmd}\n`)
+  }
+  return cp.spawn(cmd, [], Object.assign({}, opts, { shell: true }))
+}
+
+/**
+ * Wait for a child process to exit
+ *
+ * @private
+ *
+ * @param {ChildProcess} child
+ *
+ * @returns {Promise<Array>}
+ */
+function waitForClose(child) {
+  return waitFor(child, 'close', { array: true }).catch(errors => Promise.reject(errors[0]))
+}
+
+/**
+ * Return the home directory in a platform-agnostic way, with consideration for older versions of node
+ *
+ * @private
+ *
+ * @from https://github.com/shelljs/shelljs/blob/master/src/common.js#L121
+ *
+ * @returns {string}
+ */
+function getUserHome() {
+  if (os.homedir) {
+    return os.homedir() // node 3+
+  }
+  if (process.platform === 'win32') {
+    return process.env.USERPROFILE
+  }
+  return process.env.HOME
+}
+
+/**
+ * Execution result
+ *
+ * @private
+ */
+class CommandResult {
+
+  constructor(code, signal, stdout, stderr, encoding) {
+    this.code = code
+    this.signal = signal
+
+    this.stdout = Buffer.concat(stdout)
+    this.stderr = Buffer.concat(stderr)
+
+    this.encoding = encoding
+
+    if (encoding !== 'buffer') {
+      this.stdout = iconv.decode(this.stdout, encoding)
+      this.stderr = iconv.decode(this.stderr, encoding)
+    }
+  }
+
+  toString() {
+    return this.stdout
+  }
 }
