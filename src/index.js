@@ -108,11 +108,16 @@ export function g(cmd, opts = {}) {
  *
  * @returns {ChildProcess}
  */
-function spawn(cmd, opts) {
+function spawn(cmd_, opts) {
+  let cmd = cmd_
   if (!opts.silent) {
     process.stdout.write(`$ ${cmd}\n`)
   }
-  return cp.spawn(cmd, [], Object.assign({}, opts, { shell: true }))
+  const spawnOpts = Object.assign({}, opts, { shell: true })
+  if (opts.shell) {
+    cmd = `${stringify(opts.shell)} -c ${stringify(cmd)}`
+  }
+  return cp.spawn(cmd, [], spawnOpts)
 }
 
 /**
@@ -145,6 +150,19 @@ function getUserHome() {
     return process.env.USERPROFILE
   }
   return process.env.HOME
+}
+
+/**
+ * Returns a string in shell script
+ *
+ * @private
+ *
+ * @param {string} str
+ *
+ * @returns {string}
+ */
+function stringify(str) {
+  return `"${str.replace(/"/g, '\\"')}"`
 }
 
 /**
