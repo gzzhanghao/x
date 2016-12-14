@@ -91,7 +91,7 @@ export async function r(cmd, opts = {}) {
  */
 export function g(cmd, opts = {}) {
   return r(cmd, opts).then(res => {
-    if (opts.encoding === 'buffer') {
+    if (opts.trim === false && opts.encoding === 'buffer') {
       return res.stdout
     }
     return res.stdout.trim()
